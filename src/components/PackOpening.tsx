@@ -33,6 +33,9 @@ function SkipToEnd({ onDone }: { onDone: () => void }) {
 export default function PackOpening({ onComplete }: { onComplete: () => void }) {
   const [active, setActive] = useState(false);
   const [stage, setStage] = useState<"pack" | "scene">("pack");
+  // True once the walkout character file has downloaded, so the reveal shows the
+  // real model instead of the placeholder figure on a fresh (network) visit.
+  const [loading, setLoading] = useState(false);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const packStageRef = useRef<HTMLDivElement>(null);
@@ -41,6 +44,8 @@ export default function PackOpening({ onComplete }: { onComplete: () => void }) 
   const raysRef = useRef<HTMLDivElement>(null);
   const autoTimer = useRef<number | null>(null);
   const done = useRef(false);
+  const modelReady = useRef(false);
+  const pendingOpen = useRef(false);
 
   const finish = useCallback(() => {
     if (done.current) return;
@@ -52,6 +57,36 @@ export default function PackOpening({ onComplete }: { onComplete: () => void }) 
     }
     onComplete();
   }, [onComplete]);
+
+  // The actual pack-tear animation → hands off to the 3D walkout.
+  const playTear = useCallback(() => {
+    if (done.current) return;
+    setLoading(false);
+    gsap.context(() => {
+      const tl = gsap.timeline({ onComplete: () => setStage("scene") });
+      tl.to(packRef.current, { scale: 1.08, duration: 0.2, ease: "power2.out" })
+        .to(packRef.current, { rotateZ: -3, y: -8, duration: 0.14 })
+        .set([burstRef.current, raysRef.current], { opacity: 0, scale: 0.2 })
+        .to(burstRef.current, { opacity: 0.85, scale: 1, duration: 0.3, ease: "power2.out" }, "b")
+        .to(raysRef.current, { opacity: 0.5, scale: 1, rotate: 16, duration: 0.5, ease: "power2.out" }, "b")
+        .to(packStageRef.current, { opacity: 0, scale: 1.4, y: -30, duration: 0.34, ease: "power2.in" }, "b")
+        .to([burstRef.current, raysRef.current], { opacity: 0, duration: 0.45, ease: "power2.inOut" }, "b+=0.4");
+    });
+  }, []);
+
+  // Request the open — but hold for the model so the walkout never shows the
+  // placeholder. If it's still downloading, show a brief "loading" and proceed
+  // the moment it's ready (a hard cap guarantees we never hang).
+  const open = useCallback(() => {
+    if (stage !== "pack" || done.current) return;
+    if (autoTimer.current) window.clearTimeout(autoTimer.current);
+    if (modelReady.current) {
+      playTear();
+    } else {
+      pendingOpen.current = true;
+      setLoading(true);
+    }
+  }, [stage, playTear]);
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -67,36 +102,33 @@ export default function PackOpening({ onComplete }: { onComplete: () => void }) 
     }
     setActive(true);
 
-    // Warm the (heavy) walkout character while the pack sits on screen so it's
-    // ready by the time the reveal needs it: fetch the file AND eagerly load the
-    // scene chunk, whose module-level useFBX.preload kicks off fetch + parse.
+    // Download the (heavy) walkout character up front and mark ready when the
+    // bytes are cached; eagerly load the scene chunk too (its module-level
+    // useFBX.preload parses it). markReady fires the tear if the user is waiting.
+    const markReady = () => {
+      if (modelReady.current) return;
+      modelReady.current = true;
+      if (pendingOpen.current) playTear();
+    };
     const modelUrl = site.card.model?.url;
     if (modelUrl) {
-      fetch(modelUrl, { cache: "force-cache" }).catch(() => {});
+      fetch(modelUrl, { cache: "force-cache" })
+        .then((r) => r.arrayBuffer())
+        .then(markReady)
+        .catch(markReady);
+    } else {
+      markReady();
     }
     import("./WalkoutScene").catch(() => {});
-  }, [finish]);
+    // Never hang: proceed (placeholder if need be) after a generous cap.
+    const cap = window.setTimeout(markReady, 14000);
+    return () => window.clearTimeout(cap);
+  }, [finish, playTear]);
 
-  const open = useCallback(() => {
-    if (stage !== "pack" || done.current) return;
-    if (autoTimer.current) window.clearTimeout(autoTimer.current);
-
-    gsap.context(() => {
-      const tl = gsap.timeline({ onComplete: () => setStage("scene") });
-      tl.to(packRef.current, { scale: 1.08, duration: 0.2, ease: "power2.out" })
-        .to(packRef.current, { rotateZ: -3, y: -8, duration: 0.14 })
-        .set([burstRef.current, raysRef.current], { opacity: 0, scale: 0.2 })
-        .to(burstRef.current, { opacity: 0.85, scale: 1, duration: 0.3, ease: "power2.out" }, "b")
-        .to(raysRef.current, { opacity: 0.5, scale: 1, rotate: 16, duration: 0.5, ease: "power2.out" }, "b")
-        .to(packStageRef.current, { opacity: 0, scale: 1.4, y: -30, duration: 0.34, ease: "power2.in" }, "b")
-        .to([burstRef.current, raysRef.current], { opacity: 0, duration: 0.45, ease: "power2.inOut" }, "b+=0.4");
-    });
-  }, [stage]);
-
-  // Auto-advance after ~6s of inactivity.
+  // Auto-advance after a few seconds (gated on the model via open()).
   useEffect(() => {
     if (!active || stage !== "pack") return;
-    autoTimer.current = window.setTimeout(() => open(), 6000);
+    autoTimer.current = window.setTimeout(() => open(), 5000);
     return () => {
       if (autoTimer.current) window.clearTimeout(autoTimer.current);
     };
@@ -121,9 +153,19 @@ export default function PackOpening({ onComplete }: { onComplete: () => void }) 
               <PackArt />
             </button>
             <div className="pack__prompt pack__pulse">
-              Tap to <span>open</span>
+              {loading ? (
+                "Loading walkout…"
+              ) : (
+                <>
+                  Tap to <span>open</span>
+                </>
+              )}
             </div>
-            <div className="pack__hint">Reveal the 2026 Special walkout</div>
+            <div className="pack__hint">
+              {loading
+                ? "Preparing your player"
+                : "Reveal the 2026 Special walkout"}
+            </div>
           </div>
         </>
       )}
