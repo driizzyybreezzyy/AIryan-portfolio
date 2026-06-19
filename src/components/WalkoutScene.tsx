@@ -1,14 +1,31 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { MeshReflectorMaterial, useAnimations, useFBX, useGLTF } from "@react-three/drei";
+import { MeshReflectorMaterial, useAnimations, useGLTF } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { gsap } from "gsap";
 import * as THREE from "three";
-import { SkeletonUtils } from "three-stdlib";
+import { FBXLoader, SkeletonUtils } from "three-stdlib";
 import { site } from "../data/site";
 import CardFallback from "./CardFallback";
 import CanvasBoundary from "./CanvasBoundary";
 import { cue } from "../lib/sound";
+
+/* Fully load AND parse the heavy character up front (FBX parse is what made the
+   walkout flash a placeholder). PackOpening awaits `modelLoaded` before playing,
+   so by the time the figure renders the real model is in hand — no Suspense. */
+let loadedFbx: THREE.Object3D | null = null;
+export const modelLoaded: Promise<void> = (() => {
+  const url = site.card.model?.url;
+  if (!url || !/\.fbx(\?|$)/i.test(url)) return Promise.resolve();
+  return new FBXLoader()
+    .loadAsync(url)
+    .then((obj) => {
+      loadedFbx = obj;
+    })
+    .catch(() => {
+      /* fall back to the stylized figure if it can't load */
+    });
+})();
 
 /* ─────────────────────────────────────────────────────────────────────────────
    AIryan FC — cinematic 3D walkout.
@@ -196,15 +213,14 @@ function GlbFigure({
    height, plays its first animation clip, walks in and fades out like the others. */
 function FbxFigure({
   progress,
-  url,
+  fbx,
   yOffset = 0,
 }: {
   progress: React.MutableRefObject<Progress>;
-  url: string;
+  fbx: THREE.Object3D;
   yOffset?: number;
 }) {
   const group = useRef<THREE.Group>(null);
-  const fbx = useFBX(url);
 
   // Clone (skeleton-aware) so the cached asset isn't mutated, then normalize
   // scale/position: ~2 units tall, centered, feet on the floor.
@@ -213,7 +229,7 @@ function FbxFigure({
     const box = new THREE.Box3().setFromObject(clone);
     const size = new THREE.Vector3();
     box.getSize(size);
-    const s = size.y > 0 ? 2.0 / size.y : 1;
+    const s = size.y > 0 ? 2.6 / size.y : 1;
     clone.scale.setScalar(s);
     const box2 = new THREE.Box3().setFromObject(clone);
     const center = new THREE.Vector3();
@@ -278,30 +294,30 @@ function WalkoutFigure({ progress }: { progress: React.MutableRefObject<Progress
   const model = site.card.model;
   if (model?.url) {
     const isFbx = /\.fbx(\?|$)/i.test(model.url);
+    if (isFbx) {
+      // The walkout only plays once `modelLoaded` resolves (gated by PackOpening),
+      // so the parsed model is ready here — render it directly, no Suspense flash.
+      return loadedFbx ? (
+        <FbxFigure progress={progress} fbx={loadedFbx} yOffset={model.yOffset} />
+      ) : (
+        <Figure progress={progress} />
+      );
+    }
     return (
       <CanvasBoundary fallback={<Figure progress={progress} />}>
         <Suspense fallback={<Figure progress={progress} />}>
-          {isFbx ? (
-            <FbxFigure progress={progress} url={model.url} yOffset={model.yOffset} />
-          ) : (
-            <GlbFigure
-              progress={progress}
-              url={model.url}
-              clip={model.walkClip}
-              scale={model.scale}
-              yOffset={model.yOffset}
-            />
-          )}
+          <GlbFigure
+            progress={progress}
+            url={model.url}
+            clip={model.walkClip}
+            scale={model.scale}
+            yOffset={model.yOffset}
+          />
         </Suspense>
       </CanvasBoundary>
     );
   }
   return <Figure progress={progress} />;
-}
-
-// Start streaming the heavy character as soon as this scene module loads.
-if (site.card.model?.url && /\.fbx(\?|$)/i.test(site.card.model.url)) {
-  useFBX.preload(site.card.model.url);
 }
 
 /* Volumetric god-ray cones from above. */
@@ -389,11 +405,12 @@ function Rig({ progress }: { progress: React.MutableRefObject<Progress> }) {
   return (
     <>
       <primitive object={target} position={[0, 1, -0.5]} />
-      <ambientLight intensity={0.45} color="#aebfce" />
+      <ambientLight intensity={0.85} color="#cdd8e6" />
       {/* key spotlight from above-front */}
-      <spotLight ref={spot} position={[0, 6, 3]} angle={0.55} penumbra={0.85} intensity={180} color="#fff2cf" distance={24} />
-      {/* front fill so the character's textures read (not a black silhouette) */}
-      <pointLight position={[0, 1.8, 4.5]} intensity={55} color="#fff4e0" distance={18} />
+      <spotLight ref={spot} position={[0, 6, 3]} angle={0.6} penumbra={0.85} intensity={220} color="#fff2cf" distance={26} />
+      {/* strong front key so the real character reads (not a black silhouette) */}
+      <pointLight position={[0, 1.7, 5]} intensity={170} color="#fff4e0" distance={22} />
+      <pointLight position={[0, 1.2, 3.5]} intensity={90} color="#ffffff" distance={16} />
       {/* gold rim from behind the figure (backlight) */}
       <pointLight position={[0, 2.2, -3]} intensity={60} color="#e9c46a" distance={14} />
       {/* club-hint rim accents */}

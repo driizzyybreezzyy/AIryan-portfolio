@@ -1,6 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
-import { site } from "../data/site";
 import CanvasBoundary from "./CanvasBoundary";
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -102,26 +101,20 @@ export default function PackOpening({ onComplete }: { onComplete: () => void }) 
     }
     setActive(true);
 
-    // Download the (heavy) walkout character up front and mark ready when the
-    // bytes are cached; eagerly load the scene chunk too (its module-level
-    // useFBX.preload parses it). markReady fires the tear if the user is waiting.
+    // Load the scene chunk AND fully parse the heavy character before the reveal
+    // (its `modelLoaded` resolves only after FBX download + parse). markReady then
+    // fires the tear if the user is already waiting on the pack.
     const markReady = () => {
       if (modelReady.current) return;
       modelReady.current = true;
       if (pendingOpen.current) playTear();
     };
-    const modelUrl = site.card.model?.url;
-    if (modelUrl) {
-      fetch(modelUrl, { cache: "force-cache" })
-        .then((r) => r.arrayBuffer())
-        .then(markReady)
-        .catch(markReady);
-    } else {
-      markReady();
-    }
-    import("./WalkoutScene").catch(() => {});
+    import("./WalkoutScene")
+      .then((m) => m.modelLoaded)
+      .then(markReady)
+      .catch(markReady);
     // Never hang: proceed (placeholder if need be) after a generous cap.
-    const cap = window.setTimeout(markReady, 14000);
+    const cap = window.setTimeout(markReady, 16000);
     return () => window.clearTimeout(cap);
   }, [finish, playTear]);
 
