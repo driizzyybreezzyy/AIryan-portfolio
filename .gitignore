@@ -1,0 +1,23 @@
+# dependencies
+node_modules
+
+# build output
+dist
+dist-ssr
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / os
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.local
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# large unused source assets (not needed for the build)
+unused-assets/

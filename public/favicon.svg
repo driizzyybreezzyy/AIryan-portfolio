@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="fc-g" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E9C46A"/>
+      <stop offset="1" stop-color="#1FB257"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0A0F0C"/>
+  <!-- original AIryan FC crest: a shield outline -->
+  <path d="M32 8 L52 16 V32 C52 46 43 54 32 58 C21 54 12 46 12 32 V16 Z" stroke="url(#fc-g)" stroke-width="3" fill="rgba(31,178,87,0.10)"/>
+  <text x="32" y="40" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="20" fill="url(#fc-g)">AI</text>
+</svg>
