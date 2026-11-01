@@ -1,5 +1,8 @@
 # AIryan FC — Aryan Bhavsar Portfolio
 
+[![Organic Resume Pipeline](https://github.com/driizzyybreezzyy/AIryan-portfolio/actions/workflows/resume-sync.yml/badge.svg)](https://github.com/driizzyybreezzyy/AIryan-portfolio/actions/workflows/resume-sync.yml)
+[![Deployment](https://img.shields.io/badge/Live-aryan--portfolio--888.vercel.app-1FB257?logo=vercel)](https://aryan-portfolio-888.vercel.app/)
+
 A football / trading-card themed 3D developer portfolio for **Aryan Bhavsar**,
 Machine Learning Systems Engineer. The hero is a **FUT-style pack-opening walkout**
 that reveals an interactive, holographic **player card** you can tilt to catch a
@@ -108,10 +111,16 @@ A **“↻ Replay walkout”** button in the footer re-plays the pack-opening at
 (The walkout is shown automatically on a first visit and remembered in
 `localStorage`; the replay button clears that and runs it again.)
 
-## Replacing the résumé
+## Organic Resume Pipeline (Overleaf ↔ Portfolio)
 
-The “Résumé” button links to `public/resume.pdf`. Drop in your own PDF at that
-path to update it.
+The portfolio features an automated organic pipeline:
+- Edit your resume on [Overleaf](https://www.overleaf.com/).
+- Click the **`⚡ Sync to Portfolio`** button (powered by the Tampermonkey script in `scripts/overleaf-sync-userscript.js`).
+- The GitHub Action (`.github/workflows/resume-sync.yml`) automatically:
+  1. Compiles `resume/main.tex` into `public/resume.pdf`.
+  2. Runs `scripts/sync_resume_context.py` to contextually update `src/data/site.ts`.
+  3. Verifies zero TypeScript errors with `npm run build`.
+  4. Commits back to `main` $\rightarrow$ Vercel automatically deploys the live portfolio for free!
 
 ## Accessibility & motion
 
