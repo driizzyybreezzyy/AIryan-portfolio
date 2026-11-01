@@ -9,6 +9,7 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_registerMenuCommand
+// @connect      api.github.com
 // ==/UserScript==
 
 (function () {
@@ -88,6 +89,7 @@
             Accept: 'application/vnd.github.v3+json',
             'Content-Type': 'application/json',
           },
+          data: JSON.stringify(payload),
           onload: function (putRes) {
             if (putRes.status === 200 || putRes.status === 201) {
               if (btn) btn.innerText = '✅ Synced to Portfolio!';
