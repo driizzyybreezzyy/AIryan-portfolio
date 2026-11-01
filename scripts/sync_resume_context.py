@@ -3,7 +3,7 @@
 sync_resume_context.py
 Contextual sync engine that reads `resume/main.tex` and intelligently updates
 `src/data/site.ts` in the AIryan FC portfolio while preserving all FUT/sports
-theming, ratings, badges, and interfaces.
+theming, ratings, badges, and TypeScript interfaces.
 
 Runs 100% offline with zero external paid APIs, guaranteeing 0 cost and zero risk.
 """
@@ -20,16 +20,12 @@ SITE_TS = ROOT_DIR / "src" / "data" / "site.ts"
 
 def clean_latex(text: str) -> str:
     """Strip LaTeX formatting commands while retaining clean plain text."""
-    # Convert escaped symbols
     text = text.replace(r"\&", "&").replace(r"\%", "%").replace(r"\$", "$")
     text = text.replace("--", "–")
-    # Replace \href{url}{anchor} with anchor (or capture url if needed)
     text = re.sub(r"\\href\{([^}]+)\}\{([^}]+)\}", r"\2", text)
-    # Remove \textbf{}, \textit{}, \underline{}
     text = re.sub(r"\\textbf\{([^}]+)\}", r"\1", text)
     text = re.sub(r"\\textit\{([^}]+)\}", r"\1", text)
     text = re.sub(r"\\underline\{([^}]+)\}", r"\1", text)
-    # Remove stray comments and empty lines
     lines = [line.strip() for line in text.split("\n") if line.strip() and not line.strip().startswith("%")]
     return " ".join(lines)
 
@@ -40,7 +36,6 @@ def parse_latex_resume(tex_content: str):
     current_section = None
     buffer = []
 
-    # Find all sections
     lines = tex_content.splitlines()
     for line in lines:
         stripped = line.strip()
@@ -60,89 +55,9 @@ def parse_latex_resume(tex_content: str):
     return sections
 
 
-def parse_experience(raw_exp: str):
-    """Parse experience entries from LaTeX."""
-    # Pattern matching \experience {Company} {Date} {Title} {Location}
-    exp_pattern = re.compile(
-        r"\\experience\s*\{([^}]+)\}\s*\{([^}]+)\}\s*\{([^}]+)\}\s*\{([^}]+)\}",
-        re.MULTILINE
-    )
-    
-    entries = []
-    splits = exp_pattern.split(raw_exp)
-    
-    # splits format: [preamble, comp1, date1, title1, loc1, body1, comp2, date2, ...]
-    if len(splits) > 1:
-        idx = 1
-        while idx < len(splits):
-            company = clean_latex(splits[idx])
-            period = clean_latex(splits[idx+1])
-            title = clean_latex(splits[idx+2])
-            location = clean_latex(splits[idx+3])
-            body = splits[idx+4] if idx+4 < len(splits) else ""
-
-            # Extract \item bullets
-            bullets = []
-            for item in re.findall(r"\\item\s+(.*?)(?=(?:\\item|\s*\\end\{itemize\}|$))", body, re.DOTALL):
-                cleaned_bullet = clean_latex(item)
-                if cleaned_bullet:
-                    bullets.append(cleaned_bullet)
-
-            entries.append({
-                "company": company,
-                "period": period,
-                "title": title,
-                "location": location,
-                "bullets": bullets
-            })
-            idx += 5
-
-    return entries
-
-
-def parse_projects(raw_proj: str):
-    """Parse projects section from LaTeX."""
-    projects = []
-    # Match project header: \textbf{Title} ... \href{repo}{GitHub}
-    # Followed by items
-    proj_chunks = re.split(r"\\textbf\{([^}]+)\}", raw_proj)
-    
-    # [preamble, title1, body1, title2, body2, ...]
-    if len(proj_chunks) > 1:
-        idx = 1
-        while idx < len(proj_chunks):
-            raw_title = proj_chunks[idx].strip()
-            body = proj_chunks[idx+1] if idx+1 < len(proj_chunks) else ""
-            
-            # Split title and subtitle/stack if present
-            # e.g., "BarneyWingman -- Multimodal Dating Assistant (In Development)"
-            title_parts = [clean_latex(p.strip()) for p in re.split(r"--|–|\|", raw_title)]
-            title = title_parts[0]
-            
-            repo_match = re.search(r"\\href\{([^}]+)\}\{GitHub\}", body, re.IGNORECASE)
-            repo = repo_match.group(1).strip() if repo_match else ""
-
-            bullets = []
-            for item in re.findall(r"\\item\s+(.*?)(?=(?:\\item|\s*\\end\{itemize\}|$))", body, re.DOTALL):
-                cleaned_bullet = clean_latex(item)
-                if cleaned_bullet:
-                    bullets.append(cleaned_bullet)
-
-            projects.append({
-                "title": title,
-                "raw_title": clean_latex(raw_title),
-                "repo": repo,
-                "bullets": bullets
-            })
-            idx += 2
-
-    return projects
-
-
 def parse_skills(raw_skills: str):
     """Parse skills section into groups."""
     skills_map = {}
-    # Pattern \textbf{Category:} Skill1, Skill2...
     pattern = re.compile(r"\\textbf\{([^:]+):\s*\}\s*([^\\]+)", re.MULTILINE)
     for match in pattern.finditer(raw_skills):
         category = clean_latex(match.group(1)).strip()
@@ -151,6 +66,74 @@ def parse_skills(raw_skills: str):
         skills_map[category] = items
 
     return skills_map
+
+
+def sync_dynamic_skills(site_content: str, skills_map: dict) -> str:
+    """Dynamically sync all skills and categories from LaTeX into site.ts."""
+    CATEGORY_MAPPING = {
+        "Programming": "Languages",
+        "Languages": "Languages",
+        "Generative AI": "GenAI & NLP",
+        "GenAI & NLP": "GenAI & NLP",
+        "ML": "ML / Deep Learning",
+        "ML / Deep Learning": "ML / Deep Learning",
+        "Inference & Deployment": "Inference & Deployment",
+        "Inference and Deployment": "Inference & Deployment",
+        "Backend & Data": "Backend & Web",
+        "Backend & Web": "Backend & Web",
+        "Product & Delivery": "Product & Delivery",
+        "Cloud & DevOps": "Cloud & DevOps",
+        "Databases": "Databases",
+    }
+
+    for cat_name, items in skills_map.items():
+        target_group = CATEGORY_MAPPING.get(cat_name, cat_name)
+        
+        # Check if the group exists in site_content
+        pattern = re.compile(
+            r'(\{\s*group:\s*\"' + re.escape(target_group) + r'\",\s*items:\s*\[)([\s\S]*?)(\]\s*,?\s*\})',
+            re.MULTILINE
+        )
+        m = pattern.search(site_content)
+        
+        if m:
+            prefix = m.group(1)
+            current_block = m.group(2)
+            suffix = m.group(3)
+            
+            # Extract existing items
+            existing_items = [
+                line.strip().strip('",').lower()
+                for line in current_block.splitlines()
+                if line.strip().strip('",')
+            ]
+            
+            to_add = [item for item in items if item.lower() not in existing_items]
+            if to_add:
+                print(f"Dynamically adding to skill group '{target_group}': {to_add}")
+                new_items_code = "".join([f'        "{item}",\n' for item in to_add])
+                # Append before closing bracket
+                clean_current = current_block.rstrip()
+                updated_block = clean_current + "\n" + new_items_code + "      "
+                site_content = pattern.sub(prefix + updated_block + suffix, site_content, count=1)
+        else:
+            # Group does not exist at all, add a new group to skills: [ ... ]
+            print(f"Creating new skill group in site.ts: '{target_group}' with items: {items}")
+            items_code = "".join([f'        "{item}",\n' for item in items])
+            new_group_code = f"""    {{
+      group: "{target_group}",
+      items: [
+{items_code}      ],
+    }},
+"""
+            site_content = re.sub(
+                r"(skills:\s*\[\s*)",
+                r"\1" + new_group_code,
+                site_content,
+                count=1
+            )
+
+    return site_content
 
 
 def update_site_data(tex_path: Path, site_path: Path):
@@ -171,34 +154,6 @@ def update_site_data(tex_path: Path, site_path: Path):
     sections = parse_latex_resume(tex_content)
     print("Parsed LaTeX sections:", list(sections.keys()))
 
-    exp_entries = []
-    if "Professional Experience" in sections:
-        exp_entries = parse_experience(sections["Professional Experience"])
-        print(f"Found {len(exp_entries)} experience roles in resume.")
-
-    proj_entries = []
-    if "Projects" in sections:
-        proj_entries = parse_projects(sections["Projects"])
-        print(f"Found {len(proj_entries)} projects in resume.")
-
-    skills_entries = {}
-    if "Technical Skills" in sections:
-        skills_entries = parse_skills(sections["Technical Skills"])
-        print(f"Found {len(skills_entries)} skill categories in resume.")
-
-    # 1. Update Hitech bullets & Hyperface HyperAgent details if found
-    for exp in exp_entries:
-        if "Hyperface" in exp["company"]:
-            print("Syncing Hyperface (HyperAgent details)...")
-            # Look for HyperAgent bullet in resume
-            hyperagent_bullets = exp["bullets"]
-            # We can ensure site.ts reflects Hyperface roles cleanly
-        elif "Hitech" in exp["company"]:
-            print(f"Syncing Hitech Digital ({exp['title']})...")
-
-    print("\nApplying intelligent contextual adjustments to site.ts...")
-
-    # Let's perform surgical contextual updates in site_content:
     # A. Check for BarneyWingman project in site.ts
     if "barney-digital-wingman" not in site_content:
         print("Adding BarneyWingman to projects in site.ts...")
@@ -250,47 +205,15 @@ def update_site_data(tex_path: Path, site_path: Path):
 
         site_content = hitech_pattern.sub(add_hitech_bullet, site_content)
 
-    # D. Sync Skill Groups with Resume categories (Inference & Deployment, Generative AI, Product & Delivery)
-    if "Inference & Deployment" not in site_content:
-        print("Adding 'Inference & Deployment' and 'Product & Delivery' to skill groups...")
-        new_skill_group = """    {
-      group: "Inference & Deployment",
-      items: [
-        "vLLM",
-        "SGLang",
-        "LoRA",
-        "Model Serving",
-        "GPU Inference",
-        "Quantisation",
-        "Docker",
-        "RunPod",
-        "Linux",
-      ],
-    },
-    {
-      group: "Product & Delivery",
-      items: [
-        "Technical Discovery",
-        "Requirements Gathering",
-        "Solution Architecture",
-        "Client Demos",
-        "Stakeholder Engagement",
-        "UAT",
-        "Production Support",
-      ],
-    },
-"""
-        site_content = re.sub(
-            r"(skills:\s*\[\s*)",
-            r"\1" + new_skill_group,
-            site_content,
-            count=1
-        )
+    # D. DYNAMIC SKILL SYNCING: Sync any skills added in LaTeX into site.ts
+    if "Technical Skills" in sections:
+        skills_entries = parse_skills(sections["Technical Skills"])
+        site_content = sync_dynamic_skills(site_content, skills_entries)
 
     with open(site_path, "w", encoding="utf-8") as f:
         f.write(site_content)
 
-    print("Successfully updated src/data/site.ts with latest resume context!")
+    print("Successfully synchronized src/data/site.ts with latest resume context!")
     return True
 
 

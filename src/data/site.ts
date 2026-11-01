@@ -529,6 +529,7 @@ export const site: Site = {
         "Stakeholder Engagement",
         "UAT",
         "Production Support",
+        "Cross-functional Collaboration",
       ],
     },
     {
@@ -557,6 +558,10 @@ export const site: Site = {
         "OpenCV",
         "CNNs",
         "YOLOv8",
+        "NLP",
+        "Computer Vision",
+        "Sentence Transformers",
+        "Hugging Face",
       ],
     },
     {
@@ -580,6 +585,8 @@ export const site: Site = {
         "Sentence-Transformers",
         "spaCy",
         "Multi-agent systems",
+        "Context Engineering",
+        "LLM Evaluation",
       ],
     },
     {
@@ -595,6 +602,12 @@ export const site: Site = {
         "Vite",
         "Node.js",
         "Tailwind CSS",
+        "PostgreSQL",
+        "MySQL",
+        "SQLite",
+        "Git",
+        "GitHub Actions (CI/CD)",
+        "Vercel",
       ],
     },
     {
