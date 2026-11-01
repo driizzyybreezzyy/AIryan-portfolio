@@ -21,3 +21,8 @@ npm-debug.log*
 
 # large unused source assets (not needed for the build)
 unused-assets/
+
+# Python cache
+__pycache__/
+*.pyc
+
