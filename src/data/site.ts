@@ -278,6 +278,7 @@ export const site: Site = {
             "Replaced a paid Azure OCR service and a legacy BERT classifier with fine-tuned open-source OCR (DocTR, Donut, Monkey OCR) and LLMs/VLMs (Qwen 2/2.5/3, Mistral, InternVL) using LoRA fine-tuning via Unsloth — 90%+ extraction accuracy at zero inference cost on in-house GPUs.",
             "Engineered a vLLM inference layer with sidecar health monitoring and zero-downtime model hot-swapping; cut per-document time (deed 15s→1s, mortgage 25s→6s, classification 5s→0.5s) while scaling to 50,000+ documents/day in production.",
             "Built a confidence-scoring system routing low-confidence predictions to manual review, cutting verification headcount from 500 to under 100 and contributing to a 33% operational cost reduction and 10% profit increase last quarter; deployed via RunPod & Docker.",
+            "Led technical discovery and requirements discussions with stakeholders and clients; translated needs into BRDs, solution architecture, and technical documentation; conducted demos, UAT, and production support.",
           ],
           badge:
             "Star Performer of the Month & Quarter for leading the document-intelligence platform.",
@@ -301,9 +302,9 @@ export const site: Site = {
           title: "AI Researcher (Generative AI Team)",
           period: "Feb 2025 – Aug 2025",
           bullets: [
-            "Architected a multi-agent system with FastAPI integrated with LLMs (GPT-4, Gemini) for intelligent workflow automation.",
-            "Engineered agent-level prompt strategies and pipeline logic, improving response accuracy and reducing latency.",
-            "Built an evaluation framework using Hugging Face open-source models to benchmark LLMs.",
+            "Contributed to HyperAgent, a FinTech voice-AI platform supporting digital bank onboarding, Cards-as-a-Service (CaaS) journeys, card servicing, and automated rewards.",
+            "Architected FastAPI-based multi-agent workflows and orchestration; implemented RAG/CAG patterns, prompt engineering, and context management.",
+            "Built LLM evaluation and benchmarking workflows using Hugging Face open-source models; explored caching and inference strategies to improve latency.",
           ],
         },
       ],
@@ -347,6 +348,16 @@ export const site: Site = {
   ],
 
   projects: [
+    {
+      title: "BarneyWingman",
+      stack: ["Multimodal AI", "Vision-Language", "FastAPI", "Python"],
+      bullets: [
+        "Human-in-the-loop, vision-powered pipeline ingesting multi-frame screenshots to extract and merge profile evidence across dating platforms.",
+        "Consolidates profile context to generate personalised conversation starters with the user retaining full interaction control.",
+      ],
+      repo: "https://github.com/driizzyybreezzyy/barney-digital-wingman",
+      result: "MOTM",
+    },
     {
       title: "Multi-Agent Real Estate Copilot",
       stack: ["Python", "FastAPI", "Gemini", "Docker"],
@@ -494,6 +505,32 @@ export const site: Site = {
   },
 
   skills: [
+    {
+      group: "Inference & Deployment",
+      items: [
+        "vLLM",
+        "SGLang",
+        "LoRA",
+        "Model Serving",
+        "GPU Inference",
+        "Quantisation",
+        "Docker",
+        "RunPod",
+        "Linux",
+      ],
+    },
+    {
+      group: "Product & Delivery",
+      items: [
+        "Technical Discovery",
+        "Requirements Gathering",
+        "Solution Architecture",
+        "Client Demos",
+        "Stakeholder Engagement",
+        "UAT",
+        "Production Support",
+      ],
+    },
     {
       group: "Languages",
       items: [

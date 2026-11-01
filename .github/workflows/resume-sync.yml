@@ -1,0 +1,77 @@
+name: Organic Resume Pipeline
+
+on:
+  push:
+    paths:
+      - 'resume/**'
+  workflow_dispatch:
+    inputs:
+      compile_only:
+        description: 'Only compile PDF without updating site data'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  sync-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compile LaTeX Resume to PDF
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: main.tex
+          working_directory: resume
+          args: -pdf -file-line-error -halt-on-error -interaction=nonstopmode
+
+      - name: Move Compiled PDF to public/
+        run: |
+          mkdir -p public
+          cp resume/main.pdf public/resume.pdf
+          echo "Successfully updated public/resume.pdf from LaTeX compilation."
+
+      - name: Setup Python
+        if: ${{ !inputs.compile_only }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Contextually Sync Resume into Portfolio (Zero-Cost AI Engine)
+        if: ${{ !inputs.compile_only }}
+        run: |
+          python3 scripts/sync_resume_context.py
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Verification (Zero-Break Safeguard)
+        run: npm run build
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add public/resume.pdf src/data/site.ts resume/main.tex
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit. Portfolio is already fully in sync."
+          else
+            git commit -m "chore(resume): organic pipeline sync [skip ci]"
+            git push origin main
+            echo "Changes pushed successfully! Vercel is now deploying."
+          fi
